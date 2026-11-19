@@ -91,4 +91,24 @@ class IncomingMessageTest extends TestCase
 
         $this->assertNull(IncomingMessage::fromPayload(self::payload())->location());
     }
+
+    public function test_out_of_range_or_malformed_coordinates_give_no_location_instead_of_throwing(): void
+    {
+        $outOfRange = IncomingMessage::fromPayload(self::payload([
+            'type' => 'location',
+            'body' => '91, 31.2357',
+            'raw' => ['message' => ['locationMessage' => ['degreesLatitude' => 91, 'degreesLongitude' => 31.2357]]],
+        ]));
+        $this->assertNull($outOfRange->location());
+
+        $badBody = IncomingMessage::fromPayload(self::payload(['type' => 'location', 'body' => '30.0444, -181', 'raw' => []]));
+        $this->assertNull($badBody->location());
+
+        $nonNumericPin = IncomingMessage::fromPayload(self::payload([
+            'type' => 'location',
+            'body' => '30.0444, 31.2357',
+            'raw' => ['message' => ['locationMessage' => ['degreesLatitude' => 'north', 'degreesLongitude' => 31.2357]]],
+        ]));
+        $this->assertSame([30.0444, 31.2357], [$nonNumericPin->location()->latitude, $nonNumericPin->location()->longitude]);
+    }
 }

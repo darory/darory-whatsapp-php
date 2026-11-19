@@ -99,16 +99,28 @@ final class IncomingMessage
         $message = $message['ephemeralMessage']['message'] ?? $message['viewOnceMessage']['message'] ?? $message['viewOnceMessageV2']['message'] ?? $message;
         $pin = $message['locationMessage'] ?? $message['liveLocationMessage'] ?? null;
 
-        if (is_array($pin) && isset($pin['degreesLatitude'], $pin['degreesLongitude'])) {
-            return Location::make((float) $pin['degreesLatitude'], (float) $pin['degreesLongitude'], is_string($pin['name'] ?? null) ? $pin['name'] : null, is_string($pin['address'] ?? null) ? $pin['address'] : null);
+        if (is_array($pin) && is_numeric($pin['degreesLatitude'] ?? null) && is_numeric($pin['degreesLongitude'] ?? null)) {
+            return $this->safeLocation((float) $pin['degreesLatitude'], (float) $pin['degreesLongitude'], is_string($pin['name'] ?? null) ? $pin['name'] : null, is_string($pin['address'] ?? null) ? $pin['address'] : null);
         }
 
         // Fall back to the "latitude, longitude" body
         $parts = array_map('trim', explode(',', (string) $this->body));
 
         return count($parts) === 2 && is_numeric($parts[0]) && is_numeric($parts[1])
-            ? Location::make((float) $parts[0], (float) $parts[1])
+            ? $this->safeLocation((float) $parts[0], (float) $parts[1])
             : null;
+    }
+
+    /**
+     * A Location, or null when the coordinates are out of range, so a malformed webhook never throws.
+     */
+    protected function safeLocation(float $latitude, float $longitude, ?string $name = null, ?string $address = null): ?Location
+    {
+        try {
+            return Location::make($latitude, $longitude, $name, $address);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     /**
