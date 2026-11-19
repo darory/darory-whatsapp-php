@@ -1,5 +1,10 @@
 # Darory WhatsApp for PHP & Laravel
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/darory/whatsapp.svg)](https://packagist.org/packages/darory/whatsapp)
+[![Total Downloads](https://img.shields.io/packagist/dt/darory/whatsapp.svg)](https://packagist.org/packages/darory/whatsapp)
+[![PHP Version](https://img.shields.io/packagist/dependency-v/darory/whatsapp/php.svg)](https://packagist.org/packages/darory/whatsapp)
+[![License](https://img.shields.io/packagist/l/darory/whatsapp.svg)](LICENSE)
+
 Send WhatsApp messages and files, check numbers, connect sessions and receive incoming messages through the [Darory WhatsApp API](https://darory.com), from any PHP 8.1+ project, with first-class Laravel support.
 
 ```php
