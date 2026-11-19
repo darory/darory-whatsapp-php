@@ -24,6 +24,7 @@ WhatsApp::sendMessage('201012345678', 'Your order #1042 has shipped 🚚');
 - [Laravel](#laravel)
   - [Sending messages](#sending-messages)
   - [Sending files](#sending-files)
+  - [Sending a location](#sending-a-location)
   - [Several numbers](#several-numbers)
   - [Notifications](#notifications)
   - [Receiving messages (webhook)](#receiving-messages-webhook)
@@ -58,6 +59,7 @@ echo $sent->id(); // keep it to match later webhook events
 
 $whatsapp->sendDocument('201012345678', __DIR__.'/invoice.pdf', 'Your invoice');
 $whatsapp->sendImage('201012345678', 'https://example.com/offer.jpg', 'This week only');
+$whatsapp->sendLocation('201012345678', 30.0444, 31.2357, 'Darory Office', 'Tahrir Square, Cairo');
 
 if ($whatsapp->isRegistered('201099999999')) {
     // the number has WhatsApp
@@ -149,6 +151,23 @@ WhatsApp::sendMedia($phone, Media::fromPath($path)->asDocument()); // send a pho
 
 The type (image, video, audio or document) is guessed from the file name or MIME type; force it with `asImage()`, `asVideo()`, `asAudio()`, `asDocument()` or `asVoiceNote()`. Captions work on images, videos and documents; WhatsApp drops them on audio. Voice notes play everywhere only as **OGG/Opus**: `ffmpeg -i input.mp3 -c:a libopus -b:a 32k -ac 1 voice.ogg`.
 
+### Sending a location
+
+Send a pin the customer can open in Google Maps or Apple Maps. The name and address are optional:
+
+```php
+use Darory\WhatsApp\Location;
+
+WhatsApp::sendLocation($phone, 30.0444, 31.2357);
+WhatsApp::sendLocation($phone, 30.0444, 31.2357, 'Darory Office', 'Tahrir Square, Cairo');
+
+// Or build it once and reuse it
+$branch = Location::make(30.0444, 31.2357, 'Darory Office', 'Tahrir Square, Cairo');
+WhatsApp::sendLocation($phone, $branch);
+```
+
+The latitude must be between -90 and 90 and the longitude between -180 and 180, otherwise an `InvalidArgumentException` is thrown before any request is made.
+
 ### Several numbers
 
 Add each number to `config/darory-whatsapp.php`:
@@ -196,6 +215,7 @@ class InvoicePaid extends Notification implements ShouldQueue
     {
         return WhatsAppMessage::create("Hi {$notifiable->name}, we received your payment. Your invoice is attached.")
             ->media(Media::fromPath($this->invoice->pdfPath())); // optional; the text becomes the caption
+            // ->location(Location::make(30.0444, 31.2357, 'Our branch'))  also send a pin, after the text or file
             // ->instance('sales')   send from another configured number
             // ->to('201012345678')  override the recipient
     }
@@ -222,7 +242,7 @@ Or notify any number on demand:
 Notification::route('whatsapp', '201012345678')->notify(new InvoicePaid($invoice));
 ```
 
-`toWhatsApp()` may also return a plain string. When there is no number or no content, nothing is sent.
+`toWhatsApp()` may also return a plain string. When there is no number or no content, nothing is sent. With `location()`, the text (or the file) is sent first and the pin right after it; `WhatsAppMessage::create()->location(...)` sends only the pin.
 
 ### Receiving messages (webhook)
 
@@ -258,7 +278,15 @@ class ReplyToCustomer implements ShouldQueue
 
 Laravel 11 and later discover the listener automatically; on Laravel 10, register it in `EventServiceProvider`. Use a queued listener so the webhook answers quickly.
 
-`IncomingMessage` gives you `instanceId`, `id`, `from` (the chat's number), `author` (the member who wrote it in a group), `chatId`, `body`, `type` (`chat`, `image`, `video`, `audio`, `ptt`, `document`, `sticker`, `location`, `contact`...), `fromMe`, `hasMedia`, `isForwarded`, `timestamp`, plus `isText()`, `isGroup()` and `raw()` for the original WhatsApp message.
+`IncomingMessage` gives you `instanceId`, `id`, `from` (the chat's number), `author` (the member who wrote it in a group), `chatId`, `body`, `type` (`chat`, `image`, `video`, `audio`, `ptt`, `document`, `sticker`, `location`, `contact`...), `fromMe`, `hasMedia`, `isForwarded`, `timestamp`, plus `isText()`, `isGroup()`, `isLocation()` and `raw()` for the original WhatsApp message.
+
+When a customer shares a location, `location()` returns it as a `Location` with `latitude`, `longitude`, `name`, `address` and `mapsUrl()` (null for any other type):
+
+```php
+if ($location = $event->message->location()) {
+    $order->update(['lat' => $location->latitude, 'lng' => $location->longitude]);
+}
+```
 
 Messages you send from the phone itself are skipped; set `webhook.ignore_own_messages` to `false` to receive them. Every accepted webhook also fires `WebhookReceived` with the raw payload. To change the path or add middleware (rate limiting, IP allow-list), edit the `webhook` section of the config, or set `DARORY_WA_WEBHOOK_ENABLED=false` and use your own route with `IncomingMessage::fromPayload($request->json()->all())`.
 
@@ -301,7 +329,7 @@ public function test_the_customer_gets_a_whatsapp_when_the_order_ships(): void
 }
 ```
 
-Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)` and `assertNothingSent()`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `isMedia()` and `content()` (the text or the caption).
+Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)` and `assertNothingSent()`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `location`, `isMedia()`, `isLocation()` and `content()` (the text, the caption or the location name).
 
 To simulate problems:
 
@@ -349,6 +377,7 @@ try {
 | `sendImage / sendVideo($number, $source, ?$caption)` | `SentMessage` |
 | `sendDocument($number, $source, ?$caption, ?$fileName)` | `SentMessage` |
 | `sendAudio / sendVoiceNote($number, $source)` | `SentMessage` |
+| `sendLocation($number, $latitude, $longitude, ?$name, ?$address)` or `sendLocation($number, Location $location)` | `SentMessage` |
 | `isRegistered(string $number)` | `bool` |
 | `profilePictureUrl(string $number)` | `?string` |
 | `session()` | `Session` |

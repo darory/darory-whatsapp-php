@@ -83,6 +83,17 @@ class DaroryWhatsApp implements WhatsAppClient
         return SentMessage::fromResponse($response);
     }
 
+    public function sendLocation(string $number, Location|float $latitude, ?float $longitude = null, ?string $name = null, ?string $address = null): SentMessage
+    {
+        $location = Location::resolve($latitude, $longitude, $name, $address);
+
+        $response = $this->request('POST', '/send-location', [
+            'json' => ['number' => PhoneNumber::normalize($number), ...$location->toArray()],
+        ]);
+
+        return SentMessage::fromResponse($response);
+    }
+
     public function isRegistered(string $number): bool
     {
         $response = $this->request('POST', '/is-registered-user', [

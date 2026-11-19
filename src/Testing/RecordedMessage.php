@@ -2,6 +2,7 @@
 
 namespace Darory\WhatsApp\Testing;
 
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 
 /**
@@ -14,6 +15,7 @@ final class RecordedMessage
         public readonly string $number,
         public readonly ?string $text = null,
         public readonly ?Media $media = null,
+        public readonly ?Location $location = null,
     ) {}
 
     public function isMedia(): bool
@@ -21,11 +23,16 @@ final class RecordedMessage
         return $this->media !== null;
     }
 
+    public function isLocation(): bool
+    {
+        return $this->location !== null;
+    }
+
     /**
-     * The text, or the caption of a file.
+     * The text, the caption of a file, or the name of a location.
      */
     public function content(): ?string
     {
-        return $this->text ?? $this->media?->getCaption();
+        return $this->text ?? $this->media?->getCaption() ?? $this->location?->name;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Darory\WhatsApp\Contracts;
 
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use Darory\WhatsApp\Responses\SentMessage;
 use Darory\WhatsApp\Responses\Session;
@@ -25,6 +26,11 @@ interface WhatsAppClient
      * Send an image, video, audio file, voice note or document.
      */
     public function sendMedia(string $number, Media $media): SentMessage;
+
+    /**
+     * Send a location pin, optionally with a place name and address.
+     */
+    public function sendLocation(string $number, Location|float $latitude, ?float $longitude = null, ?string $name = null, ?string $address = null): SentMessage;
 
     /**
      * Whether the number has a WhatsApp account.

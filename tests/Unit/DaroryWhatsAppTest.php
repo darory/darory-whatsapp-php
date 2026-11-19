@@ -11,6 +11,7 @@ use Darory\WhatsApp\Exceptions\InvalidRequestException;
 use Darory\WhatsApp\Exceptions\NumberNotOnWhatsAppException;
 use Darory\WhatsApp\Exceptions\SessionNotConnectedException;
 use Darory\WhatsApp\Exceptions\SessionNotFoundException;
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
@@ -278,5 +279,37 @@ class DaroryWhatsAppTest extends TestCase
 
         $this->client([new ConnectException('Connection refused', new Request('POST', 'https://wa.example.test'))])
             ->sendMessage('201012345678', 'Hi');
+    }
+
+    public function test_it_sends_a_location(): void
+    {
+        $client = $this->client([
+            self::json(['status' => 'success', 'data' => ['key' => ['remoteJid' => '201012345678@s.whatsapp.net', 'id' => 'LOC1']]]),
+            self::json(['status' => 'success', 'data' => ['key' => ['id' => 'LOC2']]]),
+        ]);
+
+        $sent = $client->sendLocation('+20 101 234 5678', 30.0444, 31.2357, 'Darory Office', ' ');
+
+        $this->assertSame('https://wa.example.test/wa-api/send-location', (string) $this->lastRequest()->getUri());
+        $this->assertSame(['number' => '201012345678', 'latitude' => 30.0444, 'longitude' => 31.2357, 'name' => 'Darory Office'], $this->lastJson());
+        $this->assertSame('LOC1', $sent->id);
+
+        $client->sendLocation('201012345678', Location::make(-33.8688, 151.2093, null, 'Sydney'));
+        $this->assertSame(['number' => '201012345678', 'latitude' => -33.8688, 'longitude' => 151.2093, 'address' => 'Sydney'], $this->lastJson());
+    }
+
+    public function test_an_invalid_location_is_refused_before_any_request(): void
+    {
+        $client = $this->client([]);
+
+        foreach ([[91.0, 0.0], [0.0, 181.0], [NAN, 0.0], [10.0, null]] as [$latitude, $longitude]) {
+            try {
+                $client->sendLocation('201012345678', $latitude, $longitude);
+                $this->fail('Expected an InvalidArgumentException.');
+            } catch (InvalidArgumentException) {
+            }
+        }
+
+        $this->assertSame([], $this->history);
     }
 }

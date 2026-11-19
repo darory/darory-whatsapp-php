@@ -2,6 +2,7 @@
 
 namespace Darory\WhatsApp\Webhooks;
 
+use Darory\WhatsApp\Location;
 use InvalidArgumentException;
 
 /**
@@ -78,6 +79,36 @@ final class IncomingMessage
     public function isText(): bool
     {
         return $this->type === 'chat' && $this->body !== null && $this->body !== '';
+    }
+
+    public function isLocation(): bool
+    {
+        return $this->type === 'location';
+    }
+
+    /**
+     * The pin of a "location" message (with its name and address when the sender picked a place), or null.
+     */
+    public function location(): ?Location
+    {
+        if (! $this->isLocation()) {
+            return null;
+        }
+
+        $message = $this->raw()['message'] ?? [];
+        $message = $message['ephemeralMessage']['message'] ?? $message['viewOnceMessage']['message'] ?? $message['viewOnceMessageV2']['message'] ?? $message;
+        $pin = $message['locationMessage'] ?? $message['liveLocationMessage'] ?? null;
+
+        if (is_array($pin) && isset($pin['degreesLatitude'], $pin['degreesLongitude'])) {
+            return Location::make((float) $pin['degreesLatitude'], (float) $pin['degreesLongitude'], is_string($pin['name'] ?? null) ? $pin['name'] : null, is_string($pin['address'] ?? null) ? $pin['address'] : null);
+        }
+
+        // Fall back to the "latitude, longitude" body
+        $parts = array_map('trim', explode(',', (string) $this->body));
+
+        return count($parts) === 2 && is_numeric($parts[0]) && is_numeric($parts[1])
+            ? Location::make((float) $parts[0], (float) $parts[1])
+            : null;
     }
 
     /**

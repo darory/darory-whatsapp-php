@@ -4,6 +4,7 @@ namespace Darory\WhatsApp\Laravel\Facades;
 
 use Darory\WhatsApp\Contracts\WhatsAppClient;
 use Darory\WhatsApp\Laravel\WhatsAppManager;
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use Darory\WhatsApp\Responses\SentMessage;
 use Darory\WhatsApp\Responses\Session;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static SentMessage sendAudio(string $number, Media|string $audio)
  * @method static SentMessage sendVoiceNote(string $number, Media|string $audio)
  * @method static SentMessage sendDocument(string $number, Media|string $document, ?string $caption = null, ?string $fileName = null)
+ * @method static SentMessage sendLocation(string $number, Location|float $latitude, ?float $longitude = null, ?string $name = null, ?string $address = null)
  * @method static bool isRegistered(string $number)
  * @method static string|null profilePictureUrl(string $number)
  * @method static Session session()

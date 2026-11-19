@@ -5,6 +5,7 @@ namespace Darory\WhatsApp\Tests\Laravel;
 use Darory\WhatsApp\Laravel\Facades\WhatsApp;
 use Darory\WhatsApp\Laravel\Notifications\WhatsAppChannel;
 use Darory\WhatsApp\Laravel\Notifications\WhatsAppMessage;
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use Darory\WhatsApp\Testing\RecordedMessage;
 use Illuminate\Notifications\Notifiable;
@@ -34,6 +35,27 @@ class NotificationChannelTest extends TestCase
             && $message->content() === 'Your invoice'
             && $message->media->type() === Media::TYPE_DOCUMENT
             && $message->instanceId === 'sales');
+    }
+
+    public function test_a_location_is_sent_after_the_text(): void
+    {
+        $fake = WhatsApp::fake();
+
+        (new Customer('201012345678'))->notify(new OrderShipped(
+            WhatsAppMessage::create('Pick up your order here')->location(Location::make(30.0444, 31.2357, 'Darory Office'))
+        ));
+
+        $sent = $fake->sent();
+        $this->assertCount(2, $sent);
+        $this->assertSame('Pick up your order here', $sent[0]->text);
+        $this->assertTrue($sent[1]->isLocation());
+        $this->assertSame('Darory Office', $sent[1]->content());
+        $this->assertSame(31.2357, $sent[1]->location->longitude);
+
+        // A pin on its own
+        (new Customer('201099999999'))->notify(new OrderShipped(WhatsAppMessage::create()->location(Location::make(1.5, 2.5))));
+        $fake->assertSentTo('201099999999', fn (RecordedMessage $message): bool => $message->isLocation() && $message->content() === null);
+        $fake->assertSentCount(3);
     }
 
     public function test_on_demand_routes_and_the_channel_class_name_work(): void

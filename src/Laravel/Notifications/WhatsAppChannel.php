@@ -2,6 +2,7 @@
 
 namespace Darory\WhatsApp\Laravel\Notifications;
 
+use Darory\WhatsApp\Contracts\WhatsAppClient;
 use Darory\WhatsApp\Laravel\WhatsAppManager;
 use Darory\WhatsApp\Responses\SentMessage;
 use Illuminate\Notifications\Notification;
@@ -39,6 +40,18 @@ class WhatsAppChannel
 
         $client = $this->manager->instance($message->instance);
 
+        // The text (or file with the text as caption) goes first, then the pin
+        $sent = $this->sendContent($client, $number, $message);
+
+        if ($message->location !== null) {
+            return $client->sendLocation($number, $message->location);
+        }
+
+        return $sent;
+    }
+
+    protected function sendContent(WhatsAppClient $client, string $number, WhatsAppMessage $message): ?SentMessage
+    {
         if ($message->media !== null) {
             $media = $message->content !== null && $message->media->getCaption() === null
                 ? $message->media->caption($message->content)

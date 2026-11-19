@@ -70,4 +70,25 @@ class IncomingMessageTest extends TestCase
 
         IncomingMessage::fromPayload(['event' => 'status', 'data' => []]);
     }
+
+    public function test_a_location_message_gives_its_pin(): void
+    {
+        $message = IncomingMessage::fromPayload(self::payload([
+            'type' => 'location',
+            'body' => '30.0444, 31.2357',
+            'raw' => ['message' => ['locationMessage' => ['degreesLatitude' => 30.0444, 'degreesLongitude' => 31.2357, 'name' => 'Darory Office', 'address' => 'Cairo']]],
+        ]));
+
+        $this->assertTrue($message->isLocation());
+        $this->assertFalse($message->isText());
+        $location = $message->location();
+        $this->assertSame([30.0444, 31.2357, 'Darory Office', 'Cairo'], [$location->latitude, $location->longitude, $location->name, $location->address]);
+        $this->assertSame('https://www.google.com/maps?q=30.0444,31.2357', $location->mapsUrl());
+
+        // Without the raw message, the "latitude, longitude" body is enough
+        $fromBody = IncomingMessage::fromPayload(self::payload(['type' => 'location', 'body' => '-33.8688, 151.2093', 'raw' => []]))->location();
+        $this->assertSame([-33.8688, 151.2093, null], [$fromBody->latitude, $fromBody->longitude, $fromBody->name]);
+
+        $this->assertNull(IncomingMessage::fromPayload(self::payload())->location());
+    }
 }

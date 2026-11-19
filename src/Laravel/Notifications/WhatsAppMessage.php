@@ -2,6 +2,7 @@
 
 namespace Darory\WhatsApp\Laravel\Notifications;
 
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 
 /**
@@ -9,10 +10,13 @@ use Darory\WhatsApp\Media;
  *
  *     return WhatsAppMessage::create("Hi {$notifiable->name}, your order has shipped.");
  *     return WhatsAppMessage::create()->media(Media::fromPath($invoicePath)->caption('Your invoice'));
+ *     return WhatsAppMessage::create('Your order is on its way')->location(Location::make(30.0444, 31.2357, 'Branch'));
  */
 class WhatsAppMessage
 {
     public ?Media $media = null;
+
+    public ?Location $location = null;
 
     public ?string $to = null;
 
@@ -38,6 +42,16 @@ class WhatsAppMessage
     public function media(Media $media): static
     {
         $this->media = $media;
+
+        return $this;
+    }
+
+    /**
+     * Send a location pin. Any text content is sent first, as its own message.
+     */
+    public function location(Location $location): static
+    {
+        $this->location = $location;
 
         return $this;
     }

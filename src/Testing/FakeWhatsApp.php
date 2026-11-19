@@ -6,6 +6,7 @@ use ArrayObject;
 use Darory\WhatsApp\Concerns\SendsMedia;
 use Darory\WhatsApp\Contracts\WhatsAppClient;
 use Darory\WhatsApp\Exceptions\NumberNotOnWhatsAppException;
+use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use Darory\WhatsApp\Responses\SentMessage;
 use Darory\WhatsApp\Responses\Session;
@@ -86,6 +87,13 @@ class FakeWhatsApp implements WhatsAppClient
     public function sendMedia(string $number, Media $media): SentMessage
     {
         return $this->record(new RecordedMessage($this->instanceId, PhoneNumber::normalize($number), media: $media));
+    }
+
+    public function sendLocation(string $number, Location|float $latitude, ?float $longitude = null, ?string $name = null, ?string $address = null): SentMessage
+    {
+        $location = Location::resolve($latitude, $longitude, $name, $address);
+
+        return $this->record(new RecordedMessage($this->instanceId, PhoneNumber::normalize($number), location: $location));
     }
 
     public function isRegistered(string $number): bool
