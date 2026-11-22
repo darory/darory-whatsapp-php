@@ -33,9 +33,9 @@ class FakeWhatsApp implements WhatsAppClient
     protected ArrayObject $recorded;
 
     /**
-     * Chat actions (seen / typing / recording / paused), shared between forInstance() copies.
+     * Chat actions (seen / typing / recording / paused / reaction), shared between forInstance() copies.
      *
-     * @var ArrayObject<int, array{instanceId: string, chat: string, action: string, messageIds: array<int, string>}>
+     * @var ArrayObject<int, array{instanceId: string, chat: string, action: string, messageIds: array<int, string>, emoji: ?string}>
      */
     protected ArrayObject $chatActions;
 
@@ -128,6 +128,49 @@ class FakeWhatsApp implements WhatsAppClient
         $this->recordChatAction($chat, 'paused');
     }
 
+    public function react(string $chat, string $messageId, string $emoji, ?string $participant = null, bool $fromMe = false): void
+    {
+        $this->recordChatAction($chat, 'reaction', [DaroryWhatsApp::messageId($messageId)], DaroryWhatsApp::emoji($emoji));
+    }
+
+    public function removeReaction(string $chat, string $messageId, ?string $participant = null, bool $fromMe = false): void
+    {
+        $this->recordChatAction($chat, 'reaction', [DaroryWhatsApp::messageId($messageId)], '');
+    }
+
+    /**
+     * Assert a reaction was sent to the message; with $emoji, that it was this emoji.
+     * Use assertReactionRemoved() for removals.
+     */
+    public function assertReacted(string $chat, string $messageId, ?string $emoji = null): void
+    {
+        $chat = PhoneNumber::chat($chat);
+
+        Assert::assertNotEmpty(
+            array_filter($this->chatActions->getArrayCopy(), fn (array $action): bool => $action['chat'] === $chat
+                && $action['action'] === 'reaction'
+                && $action['messageIds'] === [$messageId]
+                && $action['emoji'] !== ''
+                && ($emoji === null || $action['emoji'] === $emoji)),
+            $emoji === null
+                ? "No reaction was sent to message [{$messageId}] in [{$chat}]."
+                : "No {$emoji} reaction was sent to message [{$messageId}] in [{$chat}]."
+        );
+    }
+
+    public function assertReactionRemoved(string $chat, string $messageId): void
+    {
+        $chat = PhoneNumber::chat($chat);
+
+        Assert::assertNotEmpty(
+            array_filter($this->chatActions->getArrayCopy(), fn (array $action): bool => $action['chat'] === $chat
+                && $action['action'] === 'reaction'
+                && $action['messageIds'] === [$messageId]
+                && $action['emoji'] === ''),
+            "The reaction on message [{$messageId}] in [{$chat}] was not removed."
+        );
+    }
+
     /**
      * Assert messages in the chat were marked as seen; with $messageId, that this one was included
      * (a call without IDs, which marks the whole chat, counts too).
@@ -163,7 +206,7 @@ class FakeWhatsApp implements WhatsAppClient
     /**
      * @param  array<int, string>  $messageIds
      */
-    protected function recordChatAction(string $chat, string $action, array $messageIds = []): void
+    protected function recordChatAction(string $chat, string $action, array $messageIds = [], ?string $emoji = null): void
     {
         if ($this->failure !== null) {
             throw $this->failure;
@@ -174,6 +217,7 @@ class FakeWhatsApp implements WhatsAppClient
             'chat' => PhoneNumber::chat($chat),
             'action' => $action,
             'messageIds' => $messageIds,
+            'emoji' => $emoji,
         ]);
     }
 

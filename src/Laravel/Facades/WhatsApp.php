@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static array markAsSeen(string $chat, string|array|null $messageIds = null)
  * @method static void sendTyping(string $chat, int|float $seconds = 5, bool $recording = false)
  * @method static void stopTyping(string $chat)
+ * @method static void react(string $chat, string $messageId, string $emoji, ?string $participant = null, bool $fromMe = false)
+ * @method static void removeReaction(string $chat, string $messageId, ?string $participant = null, bool $fromMe = false)
  * @method static bool isRegistered(string $number)
  * @method static string|null profilePictureUrl(string $number)
  * @method static Session session()

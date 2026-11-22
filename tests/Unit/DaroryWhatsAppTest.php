@@ -355,4 +355,36 @@ class DaroryWhatsAppTest extends TestCase
             $this->assertSame([], $this->history);
         }
     }
+
+    public function test_it_reacts_to_a_message_and_removes_the_reaction(): void
+    {
+        $ok = fn () => self::json(['status' => 'success', 'data' => []]);
+        $client = $this->client([$ok(), $ok(), $ok()]);
+
+        $client->react('+20 101 234 5678', ' MSG1 ', '👍');
+        $this->assertSame('https://wa.example.test/wa-api/send-reaction', (string) $this->lastRequest()->getUri());
+        $this->assertSame(['number' => '201012345678', 'messageId' => 'MSG1', 'emoji' => '👍'], $this->lastJson());
+
+        $client->react('120363000000000000@g.us', 'G1', '❤️', participant: '+20 100 000 0000', fromMe: false);
+        $this->assertSame(['number' => '120363000000000000@g.us', 'messageId' => 'G1', 'emoji' => '❤️', 'participant' => '201000000000'], $this->lastJson());
+
+        $client->removeReaction('201012345678', 'OUT1', fromMe: true);
+        $this->assertSame(['number' => '201012345678', 'messageId' => 'OUT1', 'remove' => true, 'fromMe' => true], $this->lastJson());
+    }
+
+    public function test_an_invalid_reaction_is_refused_before_any_request(): void
+    {
+        $client = $this->client([]);
+
+        foreach ([['MSG1', ''], ['MSG1', 'ok'], ['MSG1', '👍 👍'], [' ', '👍']] as [$id, $emoji]) {
+            try {
+                $client->react('201012345678', $id, $emoji);
+                $this->fail("[{$id}] [{$emoji}] should be refused.");
+            } catch (InvalidArgumentException) {
+                // expected
+            }
+        }
+
+        $this->assertSame([], $this->history);
+    }
 }

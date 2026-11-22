@@ -52,6 +52,20 @@ interface WhatsAppClient
     public function stopTyping(string $chat): void;
 
     /**
+     * React to a message with an emoji. A new reaction replaces your previous one on that message.
+     *
+     * @param  string  $chat  The chat the message is in: a number, or a chat ID such as 1203...@g.us.
+     * @param  ?string  $participant  The sender in a group, and $fromMe for your own message: only needed for
+     *                                messages the gateway hasn't seen since it last restarted.
+     */
+    public function react(string $chat, string $messageId, string $emoji, ?string $participant = null, bool $fromMe = false): void;
+
+    /**
+     * Remove your reaction from a message.
+     */
+    public function removeReaction(string $chat, string $messageId, ?string $participant = null, bool $fromMe = false): void;
+
+    /**
      * Whether the number has a WhatsApp account.
      */
     public function isRegistered(string $number): bool;

@@ -128,6 +128,57 @@ class DaroryWhatsApp implements WhatsAppClient
         ]);
     }
 
+    public function react(string $chat, string $messageId, string $emoji, ?string $participant = null, bool $fromMe = false): void
+    {
+        $this->sendReaction($chat, $messageId, self::emoji($emoji), $participant, $fromMe);
+    }
+
+    public function removeReaction(string $chat, string $messageId, ?string $participant = null, bool $fromMe = false): void
+    {
+        $this->sendReaction($chat, $messageId, null, $participant, $fromMe);
+    }
+
+    protected function sendReaction(string $chat, string $messageId, ?string $emoji, ?string $participant, bool $fromMe): void
+    {
+        $payload = ['number' => PhoneNumber::chat($chat), 'messageId' => self::messageId($messageId)];
+        $payload += $emoji === null ? ['remove' => true] : ['emoji' => $emoji];
+
+        if ($participant !== null && trim($participant) !== '') {
+            $payload['participant'] = PhoneNumber::chat($participant);
+        }
+
+        if ($fromMe) {
+            $payload['fromMe'] = true;
+        }
+
+        $this->request('POST', '/send-reaction', ['json' => $payload]);
+    }
+
+    public static function messageId(string $messageId): string
+    {
+        $messageId = trim($messageId);
+
+        if ($messageId === '') {
+            throw new InvalidArgumentException('The message ID is required.');
+        }
+
+        return $messageId;
+    }
+
+    /**
+     * A loose emoji check matching the gateway: not empty, no letters or spaces.
+     */
+    public static function emoji(string $emoji): string
+    {
+        $emoji = trim($emoji);
+
+        if ($emoji === '' || strlen($emoji) > 64 || preg_match('/[\p{L}\s]/u', $emoji) !== 0) {
+            throw new InvalidArgumentException('The reaction must be a single emoji, e.g. 👍. Use removeReaction() to remove one.');
+        }
+
+        return $emoji;
+    }
+
     /**
      * @param  string|array<int, mixed>|null  $messageIds
      * @return array<int, string>

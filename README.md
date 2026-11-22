@@ -26,6 +26,7 @@ WhatsApp::sendMessage('201012345678', 'Your order #1042 has shipped 🚚');
   - [Sending files](#sending-files)
   - [Sending a location](#sending-a-location)
   - [Read receipts and typing](#read-receipts-and-typing)
+  - [Reactions](#reactions)
   - [Several numbers](#several-numbers)
   - [Notifications](#notifications)
   - [Receiving messages (webhook)](#receiving-messages-webhook)
@@ -192,6 +193,28 @@ WhatsApp::sendTyping($event->message->chatId);
 
 `markAsSeen()` returns the IDs that were marked. Without IDs it marks the messages received since the gateway last restarted.
 
+### Reactions
+
+React to a message with an emoji, or take your reaction back:
+
+```php
+WhatsApp::react($event->message->chatId, $event->message->id, '👍');
+WhatsApp::removeReaction($event->message->chatId, $event->message->id);
+
+// A message you sent: use the ID from the send result
+$sent = WhatsApp::sendMessage($phone, 'Your order has shipped');
+WhatsApp::react($phone, $sent->id, '✅');
+```
+
+A new reaction replaces your previous one on the same message. The gateway remembers the last 2,000 messages it sent or received, so for those the chat and message ID are enough. For an older message (from before the gateway last restarted), also pass `participant:` (the sender, in a group) or `fromMe: true` (your own message) so the reaction lands on the right message:
+
+```php
+WhatsApp::react($groupId, $messageId, '🎉', participant: '201012345678');
+WhatsApp::react($phone, $messageId, '🎉', fromMe: true);
+```
+
+An empty value or text that isn't an emoji throws an `InvalidArgumentException` before any request is made.
+
 ### Several numbers
 
 Add each number to `config/darory-whatsapp.php`:
@@ -353,7 +376,7 @@ public function test_the_customer_gets_a_whatsapp_when_the_order_ships(): void
 }
 ```
 
-Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)`, `assertNothingSent()`, `assertMarkedAsSeen($chat, ?$messageId)` and `assertTyping($chat, recording: false)`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `location`, `isMedia()`, `isLocation()` and `content()` (the text, the caption or the location name).
+Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)`, `assertNothingSent()`, `assertMarkedAsSeen($chat, ?$messageId)`, `assertTyping($chat, recording: false)`, `assertReacted($chat, $messageId, ?$emoji)` and `assertReactionRemoved($chat, $messageId)`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `location`, `isMedia()`, `isLocation()` and `content()` (the text, the caption or the location name).
 
 To simulate problems:
 
@@ -404,6 +427,7 @@ try {
 | `sendLocation($number, $latitude, $longitude, ?$name, ?$address)` or `sendLocation($number, Location $location)` | `SentMessage` |
 | `markAsSeen($chat, string\|array\|null $messageIds = null)` | `array` of marked IDs |
 | `sendTyping($chat, $seconds = 5, $recording = false)` / `stopTyping($chat)` | `void` |
+| `react($chat, $messageId, $emoji, ?$participant = null, $fromMe = false)` / `removeReaction($chat, $messageId, ?$participant = null, $fromMe = false)` | `void` |
 | `isRegistered(string $number)` | `bool` |
 | `profilePictureUrl(string $number)` | `?string` |
 | `session()` | `Session` |

@@ -97,6 +97,22 @@ class WhatsAppManagerTest extends TestCase
         $fake->assertTyping('201012345678');
     }
 
+    public function test_the_fake_records_reactions(): void
+    {
+        $fake = WhatsApp::fake();
+
+        WhatsApp::react('+20 101 234 5678', 'MSG1', '👍');
+        WhatsApp::removeReaction('201012345678', 'MSG2');
+
+        $fake->assertReacted('201012345678', 'MSG1');
+        $fake->assertReacted('201012345678', 'MSG1', '👍');
+        $fake->assertReactionRemoved('201012345678', 'MSG2');
+        $fake->assertNothingSent();
+
+        $this->expectException(AssertionFailedError::class);
+        $fake->assertReacted('201012345678', 'MSG2');
+    }
+
     public function test_the_fake_can_simulate_failures(): void
     {
         $fake = WhatsApp::fake()->withUnregistered('201000000000');
