@@ -80,6 +80,23 @@ class WhatsAppManagerTest extends TestCase
         $fake->assertSentTo('201000000000');
     }
 
+    public function test_the_fake_records_seen_and_typing(): void
+    {
+        $fake = WhatsApp::fake();
+
+        WhatsApp::markAsSeen('+20 101 234 5678', 'MSG1');
+        WhatsApp::markAsSeen('120363000000000000@g.us');
+        WhatsApp::sendTyping('201012345678', recording: true);
+
+        $fake->assertMarkedAsSeen('201012345678', 'MSG1');
+        $fake->assertMarkedAsSeen('120363000000000000@g.us', 'ANY'); // the whole chat was marked
+        $fake->assertTyping('201012345678', recording: true);
+        $fake->assertNothingSent();
+
+        $this->expectException(AssertionFailedError::class);
+        $fake->assertTyping('201012345678');
+    }
+
     public function test_the_fake_can_simulate_failures(): void
     {
         $fake = WhatsApp::fake()->withUnregistered('201000000000');

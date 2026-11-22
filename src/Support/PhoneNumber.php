@@ -24,4 +24,15 @@ final class PhoneNumber
 
         return $digits;
     }
+
+    /**
+     * Like normalize(), but keeps group (…@g.us) and linked-ID (…@lid) chat IDs as they are,
+     * for calls that act on a chat rather than a number.
+     */
+    public static function chat(string $chat): string
+    {
+        $chat = trim($chat);
+
+        return str_ends_with($chat, '@g.us') || str_ends_with($chat, '@lid') ? $chat : self::normalize($chat);
+    }
 }

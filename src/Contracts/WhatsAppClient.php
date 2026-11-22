@@ -33,6 +33,25 @@ interface WhatsAppClient
     public function sendLocation(string $number, Location|float $latitude, ?float $longitude = null, ?string $name = null, ?string $address = null): SentMessage;
 
     /**
+     * Mark received messages as read (blue ticks). Without message IDs, every unread message in the chat is marked.
+     *
+     * @param  string  $chat  A number, or a chat ID such as 1203...@g.us.
+     * @param  string|array<int, string>|null  $messageIds
+     * @return array<int, string> The IDs that were marked.
+     */
+    public function markAsSeen(string $chat, string|array|null $messageIds = null): array;
+
+    /**
+     * Show "typing…" (or "recording audio…") in the chat for a few seconds. 0 seconds keeps it until stopTyping() or the next message.
+     */
+    public function sendTyping(string $chat, int|float $seconds = 5, bool $recording = false): void;
+
+    /**
+     * Clear the typing or recording indicator.
+     */
+    public function stopTyping(string $chat): void;
+
+    /**
      * Whether the number has a WhatsApp account.
      */
     public function isRegistered(string $number): bool;

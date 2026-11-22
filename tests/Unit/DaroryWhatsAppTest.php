@@ -312,4 +312,47 @@ class DaroryWhatsAppTest extends TestCase
 
         $this->assertSame([], $this->history);
     }
+
+    public function test_it_marks_messages_as_seen(): void
+    {
+        $client = $this->client([
+            self::json(['status' => 'success', 'data' => ['chat' => '201012345678@c.us', 'marked' => ['A1', 'B2']]]),
+            self::json(['status' => 'success', 'data' => ['chat' => '120363000000000000@g.us', 'marked' => ['G1']]]),
+        ]);
+
+        $marked = $client->markAsSeen('+20 101 234 5678');
+        $this->assertSame('https://wa.example.test/wa-api/mark-as-seen', (string) $this->lastRequest()->getUri());
+        $this->assertSame(['number' => '201012345678'], $this->lastJson());
+        $this->assertSame(['A1', 'B2'], $marked);
+
+        $client->markAsSeen('120363000000000000@g.us', ['G1', ' ', 'G1']);
+        $this->assertSame(['number' => '120363000000000000@g.us', 'messageIds' => ['G1']], $this->lastJson());
+    }
+
+    public function test_it_shows_and_clears_the_typing_indicator(): void
+    {
+        $ok = fn () => self::json(['status' => 'success', 'data' => []]);
+        $client = $this->client([$ok(), $ok(), $ok()]);
+
+        $client->sendTyping('201012345678');
+        $this->assertSame('https://wa.example.test/wa-api/send-typing', (string) $this->lastRequest()->getUri());
+        $this->assertSame(['number' => '201012345678', 'state' => 'typing', 'duration' => 5], $this->lastJson());
+
+        $client->sendTyping('201012345678', 10, recording: true);
+        $this->assertSame(['number' => '201012345678', 'state' => 'recording', 'duration' => 10], $this->lastJson());
+
+        $client->stopTyping('201012345678@c.us');
+        $this->assertSame(['number' => '201012345678', 'state' => 'paused'], $this->lastJson());
+    }
+
+    public function test_an_invalid_typing_duration_is_refused_before_any_request(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        try {
+            $this->client([])->sendTyping('201012345678', 61);
+        } finally {
+            $this->assertSame([], $this->history);
+        }
+    }
 }

@@ -26,6 +26,8 @@ class DaroryWhatsApp implements WhatsAppClient
 
     public const DEFAULT_BASE_URL = 'https://wa.darory.com/wa-api';
 
+    public const MAX_TYPING_SECONDS = 60;
+
     protected string $instanceId;
 
     protected ClientInterface $http;
@@ -92,6 +94,49 @@ class DaroryWhatsApp implements WhatsAppClient
         ]);
 
         return SentMessage::fromResponse($response);
+    }
+
+    public function markAsSeen(string $chat, string|array|null $messageIds = null): array
+    {
+        $payload = ['number' => PhoneNumber::chat($chat)];
+        $ids = self::messageIds($messageIds);
+
+        if ($ids !== []) {
+            $payload['messageIds'] = $ids;
+        }
+
+        $response = $this->request('POST', '/mark-as-seen', ['json' => $payload]);
+
+        return array_values(array_map('strval', (array) ($response['data']['marked'] ?? [])));
+    }
+
+    public function sendTyping(string $chat, int|float $seconds = 5, bool $recording = false): void
+    {
+        if ($seconds < 0 || $seconds > self::MAX_TYPING_SECONDS) {
+            throw new InvalidArgumentException('The typing duration must be between 0 and '.self::MAX_TYPING_SECONDS.' seconds.');
+        }
+
+        $this->request('POST', '/send-typing', [
+            'json' => ['number' => PhoneNumber::chat($chat), 'state' => $recording ? 'recording' : 'typing', 'duration' => $seconds],
+        ]);
+    }
+
+    public function stopTyping(string $chat): void
+    {
+        $this->request('POST', '/send-typing', [
+            'json' => ['number' => PhoneNumber::chat($chat), 'state' => 'paused'],
+        ]);
+    }
+
+    /**
+     * @param  string|array<int, mixed>|null  $messageIds
+     * @return array<int, string>
+     */
+    public static function messageIds(string|array|null $messageIds): array
+    {
+        $ids = array_map(fn ($id): string => trim((string) $id), (array) $messageIds);
+
+        return array_values(array_unique(array_filter($ids, fn (string $id): bool => $id !== '')));
     }
 
     public function isRegistered(string $number): bool

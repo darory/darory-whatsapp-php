@@ -5,12 +5,14 @@ namespace Darory\WhatsApp\Testing;
 use ArrayObject;
 use Darory\WhatsApp\Concerns\SendsMedia;
 use Darory\WhatsApp\Contracts\WhatsAppClient;
+use Darory\WhatsApp\DaroryWhatsApp;
 use Darory\WhatsApp\Exceptions\NumberNotOnWhatsAppException;
 use Darory\WhatsApp\Location;
 use Darory\WhatsApp\Media;
 use Darory\WhatsApp\Responses\SentMessage;
 use Darory\WhatsApp\Responses\Session;
 use Darory\WhatsApp\Support\PhoneNumber;
+use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 use Throwable;
 
@@ -31,6 +33,13 @@ class FakeWhatsApp implements WhatsAppClient
     protected ArrayObject $recorded;
 
     /**
+     * Chat actions (seen / typing / recording / paused), shared between forInstance() copies.
+     *
+     * @var ArrayObject<int, array{instanceId: string, chat: string, action: string, messageIds: array<int, string>}>
+     */
+    protected ArrayObject $chatActions;
+
+    /**
      * @var array<int, string>
      */
     protected array $unregistered = [];
@@ -42,6 +51,7 @@ class FakeWhatsApp implements WhatsAppClient
     public function __construct(protected string $instanceId = 'fake')
     {
         $this->recorded = new ArrayObject;
+        $this->chatActions = new ArrayObject;
     }
 
     public function instanceId(): string
@@ -94,6 +104,77 @@ class FakeWhatsApp implements WhatsAppClient
         $location = Location::resolve($latitude, $longitude, $name, $address);
 
         return $this->record(new RecordedMessage($this->instanceId, PhoneNumber::normalize($number), location: $location));
+    }
+
+    public function markAsSeen(string $chat, string|array|null $messageIds = null): array
+    {
+        $ids = DaroryWhatsApp::messageIds($messageIds);
+        $this->recordChatAction($chat, 'seen', $ids);
+
+        return $ids;
+    }
+
+    public function sendTyping(string $chat, int|float $seconds = 5, bool $recording = false): void
+    {
+        if ($seconds < 0 || $seconds > DaroryWhatsApp::MAX_TYPING_SECONDS) {
+            throw new InvalidArgumentException('The typing duration must be between 0 and '.DaroryWhatsApp::MAX_TYPING_SECONDS.' seconds.');
+        }
+
+        $this->recordChatAction($chat, $recording ? 'recording' : 'typing');
+    }
+
+    public function stopTyping(string $chat): void
+    {
+        $this->recordChatAction($chat, 'paused');
+    }
+
+    /**
+     * Assert messages in the chat were marked as seen; with $messageId, that this one was included
+     * (a call without IDs, which marks the whole chat, counts too).
+     */
+    public function assertMarkedAsSeen(string $chat, ?string $messageId = null): void
+    {
+        $chat = PhoneNumber::chat($chat);
+
+        Assert::assertNotEmpty(
+            array_filter($this->chatActions->getArrayCopy(), fn (array $action): bool => $action['chat'] === $chat
+                && $action['action'] === 'seen'
+                && ($messageId === null || $action['messageIds'] === [] || in_array($messageId, $action['messageIds'], true))),
+            $messageId === null
+                ? "No messages were marked as seen in [{$chat}]."
+                : "Message [{$messageId}] was not marked as seen in [{$chat}]."
+        );
+    }
+
+    /**
+     * Assert "typing…" (or "recording audio…" with $recording) was shown in the chat.
+     */
+    public function assertTyping(string $chat, bool $recording = false): void
+    {
+        $chat = PhoneNumber::chat($chat);
+        $expected = $recording ? 'recording' : 'typing';
+
+        Assert::assertNotEmpty(
+            array_filter($this->chatActions->getArrayCopy(), fn (array $action): bool => $action['chat'] === $chat && $action['action'] === $expected),
+            "No {$expected} indicator was shown in [{$chat}]."
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $messageIds
+     */
+    protected function recordChatAction(string $chat, string $action, array $messageIds = []): void
+    {
+        if ($this->failure !== null) {
+            throw $this->failure;
+        }
+
+        $this->chatActions->append([
+            'instanceId' => $this->instanceId,
+            'chat' => PhoneNumber::chat($chat),
+            'action' => $action,
+            'messageIds' => $messageIds,
+        ]);
     }
 
     public function isRegistered(string $number): bool

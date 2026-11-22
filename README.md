@@ -25,6 +25,7 @@ WhatsApp::sendMessage('201012345678', 'Your order #1042 has shipped 🚚');
   - [Sending messages](#sending-messages)
   - [Sending files](#sending-files)
   - [Sending a location](#sending-a-location)
+  - [Read receipts and typing](#read-receipts-and-typing)
   - [Several numbers](#several-numbers)
   - [Notifications](#notifications)
   - [Receiving messages (webhook)](#receiving-messages-webhook)
@@ -167,6 +168,29 @@ WhatsApp::sendLocation($phone, $branch);
 ```
 
 The latitude must be between -90 and 90 and the longitude between -180 and 180, otherwise an `InvalidArgumentException` is thrown before any request is made.
+
+### Read receipts and typing
+
+Mark what the customer sent as read (blue ticks), and show "typing…" while you prepare the reply:
+
+```php
+WhatsApp::markAsSeen($phone);                  // every unread message in the chat
+WhatsApp::markAsSeen($phone, $messageId);      // one message, or an array of IDs
+
+WhatsApp::sendTyping($phone);                  // "typing…" for 5 seconds
+WhatsApp::sendTyping($phone, 15);              // for 15 seconds (max 60; 0 = until stopTyping() or your next message)
+WhatsApp::sendTyping($phone, recording: true); // "recording audio…" before a voice note
+WhatsApp::stopTyping($phone);
+```
+
+In a webhook listener, pass the message's `chatId` and `id` so it also works in groups:
+
+```php
+WhatsApp::markAsSeen($event->message->chatId, $event->message->id);
+WhatsApp::sendTyping($event->message->chatId);
+```
+
+`markAsSeen()` returns the IDs that were marked. Without IDs it marks the messages received since the gateway last restarted.
 
 ### Several numbers
 
@@ -329,7 +353,7 @@ public function test_the_customer_gets_a_whatsapp_when_the_order_ships(): void
 }
 ```
 
-Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)` and `assertNothingSent()`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `location`, `isMedia()`, `isLocation()` and `content()` (the text, the caption or the location name).
+Available assertions: `assertSent(?callable)`, `assertSentTo($number, ?callable)`, `assertNotSentTo($number)`, `assertSentCount($n)`, `assertNothingSent()`, `assertMarkedAsSeen($chat, ?$messageId)` and `assertTyping($chat, recording: false)`. `sent(?callable)` returns the recorded messages; each has `instanceId`, `number`, `text`, `media`, `location`, `isMedia()`, `isLocation()` and `content()` (the text, the caption or the location name).
 
 To simulate problems:
 
@@ -378,6 +402,8 @@ try {
 | `sendDocument($number, $source, ?$caption, ?$fileName)` | `SentMessage` |
 | `sendAudio / sendVoiceNote($number, $source)` | `SentMessage` |
 | `sendLocation($number, $latitude, $longitude, ?$name, ?$address)` or `sendLocation($number, Location $location)` | `SentMessage` |
+| `markAsSeen($chat, string\|array\|null $messageIds = null)` | `array` of marked IDs |
+| `sendTyping($chat, $seconds = 5, $recording = false)` / `stopTyping($chat)` | `void` |
 | `isRegistered(string $number)` | `bool` |
 | `profilePictureUrl(string $number)` | `?string` |
 | `session()` | `Session` |
